@@ -1,0 +1,11 @@
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+
+# VSCode specific
+.vscode
+.history
+
+# Zorro specific
+checkpoints

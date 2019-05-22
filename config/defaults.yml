@@ -1,0 +1,30 @@
+env:
+  spaceship:
+    length: 2.5
+    frequency: 30
+    margin: 0.2
+    agent_slack: 0.1
+    frequency_ratio: 4
+    target_noise_variance: 0.05
+    target_radius: 0.05
+    corridor_episode_length: 15
+    arena_episode_length: 45
+    enable_reward_shaping: false
+    is_arena: false
+  ballnd:
+    _n: 1
+    frequency: 30
+    target_margin: 0.2
+    agent_slack: 0.1
+    episode_length: 30
+    respawn_interval: 2
+    frequency_ratio: 4
+    target_noise_variance: 0.05
+    enable_reward_shaping: false
+model:
+  actor:
+    layers: [400, 300]
+    init_bound: 0.003
+  critic:
+    layers: [400, 300]
+    init_bound: 0.003
