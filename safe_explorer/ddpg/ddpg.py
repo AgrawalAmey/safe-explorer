@@ -109,6 +109,7 @@ class DDPG:
         # Find loss with updated critic
         new_action = self._actor(self._as_tensor(batch["observation"])).reshape(-1, *self._env.action_space.shape)
         actor_loss = -torch.mean(self._critic(self._as_tensor(batch["observation"]), new_action))
+        print([type(p.grad) for model in self._models for p in model.parameters()])
         actor_loss.backward()
         self._actor_optimizer.step()
 
@@ -162,6 +163,7 @@ class DDPG:
 
         print("==========================================================")
         print("Initializing training with config:")
+        print("----------------------------------------------------------")
         Config.get().pprint()
         print("==========================================================")
         print(f"Start time: {start_time}")
@@ -206,7 +208,7 @@ class DDPG:
                 # self.store()
                 print(f"Finished epoch {step / self._config.steps_per_epoch}. Running validation ...")
                 self.evaluate()
-                print("----------------------------------------------------")
+                print("----------------------------------------------------------")
         
         print("==========================================================")
         print(f"Finished training. Time spent: {time.time() - start_time}")

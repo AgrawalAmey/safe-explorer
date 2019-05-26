@@ -53,14 +53,14 @@ arguments:
       help: "Actor network parameters."
       properties:
         - name: "layers"
-          default: [20, 20]
+          default: [300, 300]
         - name: "init_bound"
           default: 0.003
     - name: "critic"
       help: "Critic network parameters."
       properties:
         - name: "layers"
-          default: [50, 50]
+          default: [500, 500]
         - name: "init_bound"
           default: 0.003
     - name: "trainer"
@@ -89,7 +89,7 @@ arguments:
         - name: "critic_lr"
           default: 0.001
         - name: "start_steps"
-          default: 10000
+          default: 500
         - name: "action_noise_range"
           default: 0.01
         - name: "tensorboard_dir"
