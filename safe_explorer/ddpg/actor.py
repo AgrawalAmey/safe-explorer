@@ -6,13 +6,10 @@ from safe_explorer.ddpg.net import Net
 
 class Actor(Net):
     def __init__(self, observation_dim, action_dim):
-        config = Config.get_conf()
-
-        layer_dims = config.model.actor.layers
-        init_bound = config.model.actor.init_bound
+        config = Config.get().ddpg.actor
 
         super(Actor, self).__init__(observation_dim,
                                     action_dim,
-                                    layer_dims,
+                                    config.layer_dims,
                                     F.tanh,
-                                    init_bound)
+                                    config.init_bound)

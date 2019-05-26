@@ -41,6 +41,6 @@ class Net(Module):
         activations = [F.relu] * (len(self.layers) - 1) + last_activation
         
         return (seq(self.layers)
-                    .zip(activations)
-                    .map(lambda x: lambda y: x[1](x[0](x))) # activation(layer(x))
-                    .fold_left(inp, lambda x, layer_func: layer_func(x)))
+                    .zip(activations) # [(layer, activation)]
+                    .map(lambda x: lambda y: x[1](x[0](y))) # activation(layer(x))
+                    .fold_left(inp, lambda x, layer_func: layer_func(x))) # apply layer funcs sequentially

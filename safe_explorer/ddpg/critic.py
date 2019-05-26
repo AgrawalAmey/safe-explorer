@@ -10,20 +10,17 @@ class Critic(Module):
     def __init__(self, observation_dim, action_dim):
         super(Critic, self).__init__()
         
-        config = Config.get_conf()
+        config = Config.get().ddpg.critic
 
-        layer_dims = config.model.actor.layers
-        init_bound = config.model.actor.init_bound
+        self._first_layer = Linear(observation_dim, config.layer_dims[0])
+        init_fan_in_uniform(self._first_layer)
 
-        self.first_layer = Linear(observation_dim, layer_dims[0])
-        init_fan_in_uniform(self.first_layer)
+        self._model = Net(config.layer_dims[0] + action_dim,
+                          1,
+                          config.layer_dims[1:],
+                          None,
+                          config.init_bound)
 
-        self.model = Net(layer_dims[0] + action_dim,
-                         1,
-                         layer_dims[1:],
-                         None,
-                         init_bound)
-    
-    def forward(self, inp, action):
-        first_layer_output = F.relu(self.first_layer(inp))
-        return self.model(torch.cat([first_layer_output, action], dim=1))
+    def forward(self, observation, action):
+        first_layer_output = F.relu(self._first_layer(observation))
+        return self._model(torch.cat([first_layer_output, action], dim=1))

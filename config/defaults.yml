@@ -1,30 +1,102 @@
-env:
-  spaceship:
-    length: 2.5
-    frequency: 30
-    margin: 0.2
-    agent_slack: 0.1
-    frequency_ratio: 4
-    target_noise_variance: 0.05
-    target_radius: 0.05
-    corridor_episode_length: 15
-    arena_episode_length: 45
-    enable_reward_shaping: false
-    is_arena: false
-  ballnd:
-    _n: 1
-    frequency: 30
-    target_margin: 0.2
-    agent_slack: 0.1
-    episode_length: 30
-    respawn_interval: 2
-    frequency_ratio: 4
-    target_noise_variance: 0.05
-    enable_reward_shaping: false
-model:
-  actor:
-    layers: [400, 300]
-    init_bound: 0.003
-  critic:
-    layers: [400, 300]
-    init_bound: 0.003
+name: "Safe Explorer"
+help: 'Pytorch implementation of "Safe Exploration in Continuous Action Spaces".'
+arguments:
+  - name: "env"
+    help: "Configuration related to simulation environments."
+    properties:
+      - name: "spaceship"
+        help: "Spaceship environment configuration."
+        properties:
+          - name: "length"
+            default: 2.5
+          - name: "frequency"
+            default: 30
+          - name: "margin"
+            default: 0.2
+          - name: "agent_slack"
+            default: 0.1
+          - name: "frequency_ratio"
+            default: 4
+          - name: "target_noise_variance"
+            default: 0.05
+          - name: "target_radius"
+            default: 0.05
+          - name: "corridor_episode_length"
+            default: 15
+          - name: "arena_episode_length"
+            default: 45
+          - name: "enable_reward_shaping"
+            default: false
+          - name: "is_arena"
+            default: false
+      - name: "ballnd"
+        help: "Ball-ND environment configuration."
+        properties:
+          - name: "n"
+            default: 1
+          - name: "frequency"
+            default: 30
+          - name: "target_margin"
+            default: 0.2
+          - name: "agent_slack"
+            default: 0.1
+          - name: "episode_length"
+            default: 30
+          - name: "respawn_interval"
+            default: 2
+          - name: "frequency_ratio"
+            default: 4
+          - name: "target_noise_variance"
+            default: 0.05
+          - name: "enable_reward_shaping"
+            default: false
+  - name: "ddpg"
+    help: "Hyperparameters for DDPG algorithm."
+    properties:
+    - name: "actor"
+      help: "Actor network parameters."
+      properties:
+        - name: "layers"
+          default: [400, 300]
+        - name: "init_bound"
+          default: 0.003
+    - name: "critic"
+      help: "Critic network parameters."
+      properties:
+        - name: "layers"
+          default: [400, 300]
+        - name: "init_bound"
+          default: 0.003
+    - name: "trainer"
+      help: "Training parameters."
+      properties:
+        - name: "seed"
+          default: 0
+        - name: "epochs"
+          default: 100
+        - name: "steps_per_epoch"
+          default: 5000
+        - name: "evaluation_steps"
+          default: 500
+        - name: "batch_size"
+          default: 100
+        - name: "max_episode_length"
+          default: 1000
+        - name: "replay_buffer_size"
+          default: 1000000
+        - name: "discount_factor"
+          default: 0.99
+        - name: "polyak"
+          default: 0.995
+        - name: "actor_lr"
+          default: 0.001
+        - name: "critic_lr"
+          default: 0.001
+        - name: "start_steps"
+          default: 10000
+        - name: "action_noise_range"
+          default: 0.1
+        - name: "tensorboard_dir"
+          default: "./runs/tensorboard/"
+        - name: "use_gpu"
+          default: false
