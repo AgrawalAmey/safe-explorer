@@ -11,13 +11,13 @@ class BallND(gym.Env):
         self._config = Config.get().env.ballnd
 
         # Set the properties for spaces
-        self.action_space = Box(low=-1, high=1, shape=(n,), dtype=np.float32)
+        self.action_space = Box(low=-1, high=1, shape=(self._config.n,), dtype=np.float32)
         self.observation_space = Dict({
-            'agent_position': Box(low=0, high=1, shape=(n,), dtype=np.float32),
-            'target_position': Box(low=0, high=1, shape=(n,), dtype=np.float32)
+            'agent_position': Box(low=0, high=1, shape=(self._config.n,), dtype=np.float32),
+            'target_position': Box(low=0, high=1, shape=(self._config.n,), dtype=np.float32)
         })
 
-        # Sets all the episode specific variables      
+        # Sets all the episode specific variables
         self.reset()
         
     def reset(self):
@@ -38,25 +38,28 @@ class BallND(gym.Env):
             (1 - 2 * self._config.target_margin) * np.random.random(self._config.n) + self._config.target_margin
     
     def _move_agent(self, velocity):
-        self._agent_position += self._config.frequency_ratio * (1 / self._config.frequency) * velocity
+        # Assume that frequency of motor is 1 (one action per second)
+        self._agent_position += self._config.frequency_ratio * velocity
     
     def _is_agent_outside_boundary(self):
-        return np.any(self._agent_position < 0 or self._agent_position > 1)
+        return np.any(self._agent_position < 0) or np.any(self._agent_position > 1)
     
     def _is_agent_outside_slacked_boundary(self):
-        return np.any(self._agent_position < self._config.agent_slack \
-                      or self._agent_position > 1 - self._config.agent_slack)
+        return np.any(self._agent_position < self._config.agent_slack) \
+               or np.any(self._agent_position > 1 - self._config.agent_slack)
 
     def _update_time(self):
-        self._current_time += self._config.frequency_ratio * (1 / self._config.frequency)
+        # Assume that frequency of motor is 1 (one action per second)
+        self._current_time += self._config.frequency_ratio
     
     def _get_noisy_target_position(self):
         return self._target_position + \
-               np.random.normal(0, np.power(self._config.target_noise_variance, 0.5), self._config.n)
+               np.random.normal(0, self._config.target_noise_std, self._config.n)
     
     def step(self, action):
-        # Check if the target needs to be relocated        
-        if self._current_time % self._config.respawn_interval == 0:
+        # Check if the target needs to be relocated
+        # Extract the first digit after decimal in current_time to add numerical stability
+        if (int(100 * self._current_time) // 10) % (self._config.respawn_interval * 10) == 0:
             self._reset_target_location()
 
         # Increment time
@@ -71,9 +74,12 @@ class BallND(gym.Env):
         self._last_reward = reward
         
         # Prepare return payload
-        observation = (self._agent_position, self._get_noisy_target_position())
+        observation = {
+            "agent_position": self._agent_position,
+            "target_postion": self._get_noisy_target_position()
+        }
 
         done = self._is_agent_outside_boundary() \
-               or self._current_time == self._config.episode_length
-        
+               or int(self._current_time // 1) >= self._config.episode_length
+
         return observation, step_reward, done, {}

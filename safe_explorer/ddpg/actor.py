@@ -1,4 +1,4 @@
-import torch.nn.functional as F
+import torch
 
 from safe_explorer.core.config import Config
 from safe_explorer.ddpg.net import Net
@@ -10,6 +10,6 @@ class Actor(Net):
 
         super(Actor, self).__init__(observation_dim,
                                     action_dim,
-                                    config.layer_dims,
-                                    F.tanh,
+                                    config.layers,
+                                    torch.tanh,
                                     config.init_bound)

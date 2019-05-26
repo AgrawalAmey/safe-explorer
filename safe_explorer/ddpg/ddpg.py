@@ -2,6 +2,7 @@ import copy
 import numpy as np
 import time
 import torch
+from torch.nn import MSELoss
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 
@@ -18,6 +19,7 @@ class DDPG:
 
         self._initialize_target_networks()
         self._initialize_optimizers()
+        self._critic_loss = MSELoss()
 
         self._models = [self._actor, self._critic,
                         self._target_actor, self._target_critic]
@@ -29,6 +31,11 @@ class DDPG:
 
         if self._config.use_gpu:
             self.cuda()
+
+    def _as_tensor(self, ndarray, requires_grad=False):
+        tensor = torch.Tensor(ndarray)
+        tensor.requires_grad = requires_grad
+        return tensor
 
     def _initialize_target_networks(self):
         self._target_actor = copy.deepcopy(self._actor)
@@ -47,35 +54,36 @@ class DDPG:
     def cuda(self):
         map(lambda x: x.eval(), self._models)
 
-    def _get_action(self, observation, is_training=True):
+    def _get_action(self, observation, is_training=False):
         # Action + random gaussian noise (as recommended in spining up)
-        action = self._actor(self._tuple_to_tensor(observation))
+        action = self._actor(observation)
         if is_training:
-            action += self._config.action_noise_range * torch.randn(observation.shape[0])
+            action += self._config.action_noise_range * torch.randn(self._env.action_space.shape)
         action = np.clip(action.data.numpy(),
-                         self._env.action_space.low,
-                         self._env.action_space.hight)
+                         self._env.action_space.low[0],
+                         self._env.action_space.high[0])
         return action
 
     def _get_q(self, batch):
-        return self._critic(torch.Tensor(batch["observation"]))
+        return self._critic(self._as_tensor(batch["observation"]))
 
     def _get_target(self, batch):
         # For each observation in batch:
         # target = r + discount_factor * (1 - done) * max_a Q_tar(s, a)
         # a => actions of actor on current observations
         # max_a Q_tar(s, a) = output of critic
-        observation = torch.Tensor(batch["observation"])
-        reward = torch.Tensor(batch["reward"])
-        done = torch.Tensor(batch["done"])
+        observation = self._as_tensor(batch["observation"])
+        reward = self._as_tensor(batch["reward"])
+        done = self._as_tensor(batch["done"])
 
-        action = self._target_actor(observation)
+        action = self._target_actor(observation).reshape(-1, *self._env.action_space.shape)
+
         q = self._target_critic(observation, action)
 
         return reward  + self._config.discount_factor * (1 - done) + q
 
-    def _tuple_to_tensor(self, tup):
-        return torch.Tensor(np.concatenate(list(tup)))
+    def _flatten_dict(self, inp):
+        return self._as_tensor(np.concatenate(list(inp.values())))
 
     def _update_targets(self, target, main):
         for target_param, main_param in zip(target.parameters(), main.parameters()):
@@ -83,28 +91,31 @@ class DDPG:
                                     (1 - self._config.polyak) * main_param.data)
 
     def _update_batch(self):
-        batch = self.replay_buffer.sample(self._config.batch_size)
+        batch = self._replay_buffer.sample(self._config.batch_size)
 
-        q_predicted = self._critic(torch.Tensor(batch["observation"]),
-                                    torch.Tensor(batch["action"]))
-
-        q_target = self._get_target(batch)
-        
         # Update critic
         self._critic_optimizer.zero_grad()
-        critic_loss = -torch.mean((q_predicted - q_target) ** 2)
+        q_target = self._get_target(batch)
+        q_predicted = self._critic(self._as_tensor(batch["observation"]),
+                                   self._as_tensor(batch["action"]))
+        critic_loss = self._critic_loss(q_predicted, q_target)
+        critic_loss.retain_grad()
         critic_loss.backward()
+        print("Grad1:")
+        print(list(self._critic.parameters())[0].grad)
         self._critic_optimizer.step()
 
         # Update actor
         self._actor_optimizer.zero_grad()
         # Find loss with updated critic
-        actor_loss = -torch.mean(self._critic(torch.Tensor(batch["observation"]),
-                                              self._actor(self._tuple_to_tensor(
-                                                          torch.Tensor(batch["observations"])))))
+        new_action = self._actor(self._as_tensor(batch["observation"])).reshape(-1, *self._env.action_space.shape)
+        actor_loss = -torch.mean(self._critic(self._as_tensor(batch["observation"]), new_action))
+        actor_loss.retain_grad()
         actor_loss.backward()
+        print("Grad:")
+        print(list(self._actor.parameters())[0].grad)
         self._actor_optimizer.step()
-        
+
         # Log to tensorboard
         self._writer.add_scalar("critic loss", critic_loss.item())
         self._writer.add_scalar("actor loss", actor_loss.item())
@@ -112,12 +123,12 @@ class DDPG:
         self._writer.add_scalar("actor loss grad", actor_loss.grad.item())
         
         # Update targets networks
-        self._update_targets(self.target_actor, self._actor)
-        self._update_targets(self.target_critic, self._critic)
+        self._update_targets(self._target_actor, self._actor)
+        self._update_targets(self._target_critic, self._critic)
 
     def _update(self, episode_length):
         # Update model #episode_length times
-        map(lambda x: self._update_batch(), range(episode_length))
+        [self._update_batch() for _ in range(episode_length)]
 
     def evaluate(self):
         rewards = []
@@ -130,7 +141,7 @@ class DDPG:
         self.eval_mode()
 
         for step in range(self._config.evaluation_steps):
-            action = self._get_action(observation, is_training=False)
+            action = self._get_action(self._flatten_dict(observation), is_training=False)
             observation, reward, done, _ = self._env.step(action)
             episode_reward += reward
             episode_length += 1
@@ -138,14 +149,18 @@ class DDPG:
             if done or (episode_length == self._config.max_episode_length):
                 rewards.append(episode_reward)
                 lengths.append(episode_length)
+                observation = self._env.reset()
+                episode_reward = 0
+                episode_length = 0
 
-        self._writer.add_scalar("eval episode length", np.mean(episode_length))
-        self._writer.add_scalar("eval episode reward", np.mean(episode_reward))
+        mean_episode_reward = np.mean(episode_reward)
+        mean_episode_length = np.mean(episode_length)
+        self._writer.add_scalar("eval episode reward", mean_episode_reward)
+        self._writer.add_scalar("eval episode length", mean_episode_length)
 
         self.train_mode()
 
-        print(f"Validation completed with average episode length: {np.mean(episode_length)} \
-                & average reward {np.mean(episode_reward)}")
+        print(f"Validation completed with average episode length: {mean_episode_length} & average reward {mean_episode_reward}")
 
     def train(self):
         
@@ -158,7 +173,7 @@ class DDPG:
         print(f"Start time: {start_time}")
         print("==========================================================")
 
-        observation = self.env.reset()
+        observation = self._env.reset()
         episode_reward = 0
         episode_length = 0
 
@@ -166,28 +181,27 @@ class DDPG:
 
         for step in range(number_of_steps):
             # Randomly sample actions for some initial steps
-            action = self.env.action_space.sample() if step < self._config.start_steps \
-                     else self._get_action(observation)
+            action = self._env.action_space.sample() if step < self._config.start_steps \
+                     else self._get_action(self._flatten_dict(observation))
             
             observation_next, reward, done, _ = self._env.step(action)
             episode_reward += reward
             episode_length += 1
 
-            self.replay_buffer.add({
-                "observation": observation,
+            self._replay_buffer.add({
+                "observation": np.concatenate(list(observation.values())),
                 "action": action,
-                "reward": reward,
-                "observation_next": observation_next,
-                "done": done,
+                "reward": np.asarray(reward),
+                "observation_next": np.concatenate(list(observation_next.values())),
+                "done": np.asarray(done),
             })
 
             observation = observation_next
-        
             # Make all updates at the end of the episode
             if done or (episode_length == self._config.max_episode_length):
                 self._update(episode_length)
                 # Reset episode
-                observation = self.env.reset()
+                observation = self._env.reset()
                 episode_reward = 0
                 episode_length = 0
                 self._writer.add_scalar("episode length", episode_length)
@@ -196,7 +210,7 @@ class DDPG:
             # Check if the epoch is over
             if step != 0 and step % self._config.steps_per_epoch == 0:
                 # self.store()
-                print(f"Finished epoch {step & self._config.steps_per_epoch}. Running validation ...")
+                print(f"Finished epoch {step / self._config.steps_per_epoch}. Running validation ...")
                 self.evaluate()
                 print("----------------------------------------------------")
         

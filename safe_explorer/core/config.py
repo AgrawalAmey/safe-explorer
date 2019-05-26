@@ -9,12 +9,14 @@ from safe_explorer.utils.path import get_project_root_dir
 
 
 class Config:
-    @staticmethod
-    def _get_argument_groups(arg_config):
+    _config = None
+
+    @classmethod
+    def _get_argument_groups(cls, arg_config):
         argument_groups = []
         for group in arg_config:
             if "properties" in group.keys():
-                sub_groups = _get_argument_groups(group["properties"])
+                sub_groups = cls._get_argument_groups(group["properties"])
                 for sub_group in sub_groups:
                     if not sub_group.get("_is_root", False):
                         sub_group["name"] = f"{group['name']}_{sub_group['name']}".strip()
@@ -36,8 +38,8 @@ class Config:
 
         return argument_groups
 
-    @staticmethod
-    def _create_parser(name, _help, argument_groups):
+    @classmethod
+    def _create_parser(cls, name, _help, argument_groups):
         parser = argparse.ArgumentParser(prog=name,
                                          description=_help,
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -60,30 +62,33 @@ class Config:
         
         return parser
     
-    @staticmethod
-    def _split_namespace(parent_name, arg_config, parsed_dict):
+    @classmethod
+    def _split_namespace(cls, parent_name, arg_config, parsed_dict):
         group_namespaces = {}
         for group in arg_config:
             name = group["name"]
             if "properties" in group.keys():
                 matching_arguments = {k[(len(name) + 1):]: v for k, v \
                                     in parsed_dict.items() if k.startswith(name)}
-                group_namespaces[name] = _split_namespace(name, group["properties"], matching_arguments)
+                group_namespaces[name] = cls._split_namespace(name, group["properties"], matching_arguments)
             else:
                 group_namespaces[name] = parsed_dict[name]
 
         return Namespacify(parent_name, group_namespaces)
 
     @classmethod
-    def load_config(cls):
+    def load_config(cls, args=None):
         config_file_path = f"{get_project_root_dir()}/config/defaults.yml"
         config = yaml.load(open(config_file_path), Loader=yaml.FullLoader)
-        argument_groups = _get_argument_groups(config["arguments"])
-        parser = _create_parser(config["name"], config.get("help", ''), argument_groups)
-        parsed_config = _split_namespace(config["name"], config["arguments"], parser.parse_args())
+        argument_groups = cls._get_argument_groups(config["arguments"])
+        parser = cls._create_parser(config["name"], config.get("help", ''), argument_groups)
+        parsed_config = cls._split_namespace(config["name"], config["arguments"], parser.parse_args(args).__dict__)
         
-        self._config = parsed_config
+        cls._config = parsed_config
 
     @classmethod
     def get(cls):
+        if not cls._config:
+            cls.load_config()
+
         return cls._config

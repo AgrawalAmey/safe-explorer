@@ -12,12 +12,12 @@ class Critic(Module):
         
         config = Config.get().ddpg.critic
 
-        self._first_layer = Linear(observation_dim, config.layer_dims[0])
-        init_fan_in_uniform(self._first_layer)
+        self._first_layer = Linear(observation_dim, config.layers[0])
+        init_fan_in_uniform(self._first_layer.weight)
 
-        self._model = Net(config.layer_dims[0] + action_dim,
+        self._model = Net(config.layers[0] + action_dim,
                           1,
-                          config.layer_dims[1:],
+                          config.layers[1:],
                           None,
                           config.init_bound)
 

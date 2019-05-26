@@ -7,5 +7,5 @@ __pycache__/
 .vscode
 .history
 
-# Zorro specific
-checkpoints
+# Project specific
+runs/

@@ -1,4 +1,5 @@
 import gym
+from gym.spaces import Box, Dict
 import numpy as np
 from numpy import linalg as LA
 
@@ -11,13 +12,14 @@ class Spaceship(gym.Env):
         self._config = Config.get().env.spaceship
 
         self._width = self._config.length if self._config.is_arena else 1
-        
+        self._episode_length = self._config.arena_episode_length \
+            if self._config.is_arena else self._config.corridor_episode_length
         # Set the properties for spaces
-        self.action_space = Box(low=-1, high=1, shape=(n,), dtype=np.float32)
+        self.action_space = Box(low=-1, high=1, shape=(2,), dtype=np.float32)
         self.observation_space = Dict({
-            'agent_position': Box(low=0, high=1, shape=(n,), dtype=np.float32),
-            'agent_velocity': Box(low=-np.inf, high=np.inf, shape=(n,), dtype=np.float32),
-            'target_position': Box(low=0, high=1, shape=(n,), dtype=np.float32)
+            'agent_position': Box(low=0, high=1, shape=(2,), dtype=np.float32),
+            'agent_velocity': Box(low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32),
+            'target_position': Box(low=0, high=1, shape=(2,), dtype=np.float32)
         })
 
         # Sets all the episode specific variables         
@@ -34,7 +36,7 @@ class Spaceship(gym.Env):
         self._current_time = 0.
         self._last_reward = 0.
 
-        return self.step(np.zeros(self._config.n))[0]
+        return self.step(np.zeros(2))[0]
 
     def _get_reward(self):
         if self._config.enable_reward_shaping and self._is_agent_outside_slacked_boundary():
@@ -47,24 +49,26 @@ class Spaceship(gym.Env):
         return reward
     
     def _move_agent(self, acceleration):
-        time = self._config.frequency_ratio * (1 / self._config.frequency)
-        self._agent_position += self._velocity * time + 0.5 * acceleration * time ** 2
-        self._velocity += time * acceleration
+        # Assume spaceship frequency to be one
+        self._agent_position += self._velocity * self._config.frequency_ratio \
+                                + 0.5 * acceleration * self._config.frequency_ratio ** 2
+        self._velocity += self._config.frequency_ratio * acceleration
     
     def _is_agent_outside_boundary(self):
-        return np.any(self._agent_position < 0 \
-                      or self._agent_position > np.asarray([self._width, self._config.length]))
+        return np.any(self._agent_position < 0) \
+               or np.any(self._agent_position > np.asarray([self._width, self._config.length]))
     
     def _is_agent_outside_slacked_boundary(self):
-        return np.any(self._agent_position < self._config.agent_slack \
-                      or self._agent_position > np.asarray([self._width, self._config.length]) - self._config.agent_slack)
+        return np.any(self._agent_position < self._config.agent_slack) \
+               or np.any(self._agent_position > np.asarray([self._width, self._config.length]) - self._config.agent_slack)
 
     def _update_time(self):
-        self._current_time += self._config.frequency_ratio * (1 / self._config.frequency)
+        # Assume spaceship frequency to be one
+        self._current_time += self._config.frequency_ratio
     
     def _get_noisy_target_position(self):
         return self._target_position + \
-               np.random.normal(0, np.power(self._config.target_noise_variance, 0.5), 2)
+               np.random.normal(0, self._config.target_noise_std, 2)
     
     def step(self, action):
         # Increment time
@@ -79,9 +83,13 @@ class Spaceship(gym.Env):
         self._last_reward = reward
         
         # Prepare return payload
-        observation = (self._agent_position, self._velocity, self._get_noisy_target_position())
+        observation = {
+            "agent_position": self._agent_position,
+            "agent_velocity": self._velocity,
+            "target_postion": self._get_noisy_target_position()
+        }
 
         done = self._is_agent_outside_boundary() \
-               or self._current_time == self._config.episode_length
+               or int(self._current_time // 1) >= self._episode_length
         
         return observation, step_reward, done, {}

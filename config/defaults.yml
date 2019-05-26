@@ -9,15 +9,13 @@ arguments:
         properties:
           - name: "length"
             default: 2.5
-          - name: "frequency"
-            default: 30
           - name: "margin"
             default: 0.2
           - name: "agent_slack"
             default: 0.1
           - name: "frequency_ratio"
-            default: 4
-          - name: "target_noise_variance"
+            default: 0.25
+          - name: "target_noise_std"
             default: 0.05
           - name: "target_radius"
             default: 0.05
@@ -34,19 +32,17 @@ arguments:
         properties:
           - name: "n"
             default: 1
-          - name: "frequency"
-            default: 30
           - name: "target_margin"
             default: 0.2
           - name: "agent_slack"
             default: 0.1
           - name: "episode_length"
-            default: 30
-          - name: "respawn_interval"
-            default: 2
+            default: 15
           - name: "frequency_ratio"
-            default: 4
-          - name: "target_noise_variance"
+            default: 0.25
+          - name: "respawn_interval"
+            default: 1
+          - name: "target_noise_std"
             default: 0.05
           - name: "enable_reward_shaping"
             default: false
@@ -57,14 +53,14 @@ arguments:
       help: "Actor network parameters."
       properties:
         - name: "layers"
-          default: [400, 300]
+          default: [10, 10]
         - name: "init_bound"
           default: 0.003
     - name: "critic"
       help: "Critic network parameters."
       properties:
         - name: "layers"
-          default: [400, 300]
+          default: [10, 10]
         - name: "init_bound"
           default: 0.003
     - name: "trainer"
