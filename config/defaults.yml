@@ -77,7 +77,7 @@ arguments:
         - name: "batch_size"
           default: 100
         - name: "max_episode_length"
-          default: 1000
+          default: 100
         - name: "replay_buffer_size"
           default: 1000000
         - name: "discount_factor"
