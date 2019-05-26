@@ -11,7 +11,7 @@ class Namespacify(object):
         self.__dict__.update(in_dict)
 
     def pprint(self, indent=0):
-        print(f"{'' * indent}{self.name}:")
+        print(f"{' ' * indent}{self.name}:")
         
         indent += 4
         
@@ -21,4 +21,4 @@ class Namespacify(object):
             if type(v) == Namespacify:
                 v.pprint(indent)
             else:
-                print(f"{'' * indent}{k}: {v}")
+                print(f"{' ' * indent}{k}: {v}")

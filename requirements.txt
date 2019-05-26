@@ -1,1 +1,5 @@
-xmltodict
+functional
+numpy
+torch
+tb-nightly
+gym

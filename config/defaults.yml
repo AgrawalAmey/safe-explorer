@@ -39,9 +39,9 @@ arguments:
           - name: "episode_length"
             default: 15
           - name: "frequency_ratio"
-            default: 0.25
+            default: 0.025
           - name: "respawn_interval"
-            default: 1
+            default: 0.1
           - name: "target_noise_std"
             default: 0.05
           - name: "enable_reward_shaping"
@@ -53,14 +53,14 @@ arguments:
       help: "Actor network parameters."
       properties:
         - name: "layers"
-          default: [10, 10]
+          default: [20, 20]
         - name: "init_bound"
           default: 0.003
     - name: "critic"
       help: "Critic network parameters."
       properties:
         - name: "layers"
-          default: [10, 10]
+          default: [50, 50]
         - name: "init_bound"
           default: 0.003
     - name: "trainer"
@@ -91,8 +91,16 @@ arguments:
         - name: "start_steps"
           default: 10000
         - name: "action_noise_range"
-          default: 0.1
+          default: 0.01
         - name: "tensorboard_dir"
           default: "./runs/tensorboard/"
         - name: "use_gpu"
           default: false
+  - name: "core"
+    help: "Safe-Explorer core properties."
+    properties:
+      - name: "driver"
+        help: "Driver configuration."
+        properties:
+          - name: "task"
+            default: "ballnd"

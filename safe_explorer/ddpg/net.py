@@ -35,16 +35,14 @@ class Net(Module):
         uniform_(self._layers[-1].weight, -bound, bound)
 
     def forward(self, inp):
-        # If last_activation is none, add a do-nothing function 
-        last_activation = self._last_activation if self._last_activation else lambda x: x
-        # Use ReLU for all layers but last one
-        activations = [F.relu] * (len(self._layers) - 1) + [last_activation]
+        out = inp
 
-        output = torch.Tensor(seq(self._layers)
-                            .zip(activations) # [(layer, activation)]
-                            .map(lambda x: lambda y: x[1](x[0](y))) # activation(layer(x))
-                            .fold_left(inp, lambda x, layer_func: layer_func(x)) # apply layer funcs sequentially
-                            .to_list())
-        output.requires_grad = True
+        for layer in self._layers[:-1]:
+            out = F.relu(layer(out))
 
-        return output
+        if self._last_activation:
+            out = self._last_activation(self._layers[-1](out))
+        else:
+            out = self._layers[-1](out)
+
+        return out
