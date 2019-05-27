@@ -56,7 +56,8 @@ class Config:
                     options["action"] = 'store_true'
                 else:
                     options["type"] = type(default_value) if default_value else None
-                    options["nargs"] = '+' if type(default_value) == list else 1
+                    if type(default_value) == list:
+                        options["nargs"] = '+'
 
                 group.add_argument(f"--{argument['name']}", **options)
         

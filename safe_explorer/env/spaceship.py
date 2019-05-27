@@ -33,8 +33,7 @@ class Spaceship(gym.Env):
         self._target_position = \
             (np.asarray([self._width , self._config.length]) - 2 * self._config.margin) * np.random.random(2) \
                  + self._config.margin
-        self._current_time = 0.
-        self._last_reward = 0.
+        self._current_time = 0.        
 
         return self.step(np.zeros(2))[0]
 
@@ -69,7 +68,7 @@ class Spaceship(gym.Env):
     def _get_noisy_target_position(self):
         return self._target_position + \
                np.random.normal(0, self._config.target_noise_std, 2)
-    
+
     def step(self, action):
         # Increment time
         self._update_time()
@@ -79,8 +78,6 @@ class Spaceship(gym.Env):
 
         # Find reward         
         reward = self._get_reward()
-        step_reward = reward - self._last_reward
-        self._last_reward = reward
         
         # Prepare return payload
         observation = {
@@ -92,4 +89,4 @@ class Spaceship(gym.Env):
         done = self._is_agent_outside_boundary() \
                or int(self._current_time // 1) >= self._episode_length
         
-        return observation, step_reward, done, {}
+        return observation, reward, done, {}

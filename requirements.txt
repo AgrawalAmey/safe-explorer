@@ -1,4 +1,4 @@
-functional
+pyfunctional
 numpy
 torch
 tb-nightly

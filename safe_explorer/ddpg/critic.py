@@ -12,15 +12,19 @@ class Critic(Module):
         
         config = Config.get().ddpg.critic
 
-        self._first_layer = Linear(observation_dim, config.layers[0])
-        init_fan_in_uniform(self._first_layer.weight)
+        self._observation_linear = Linear(observation_dim, config.layers[0])
+        self._action_linear = Linear(action_dim, config.layers[0])
+        
+        init_fan_in_uniform(self._observation_linear.weight)
+        init_fan_in_uniform(self._action_linear.weight)
 
-        self._model = Net(config.layers[0] + action_dim,
+        self._model = Net(config.layers[0] * 2,
                           1,
                           config.layers[1:],
                           None,
                           config.init_bound)
 
     def forward(self, observation, action):
-        first_layer_output = F.relu(self._first_layer(observation))
-        return self._model(torch.cat([first_layer_output, action], dim=1))
+        observation_ = F.relu(self._observation_linear(observation))
+        action_ = F.relu(self._action_linear(action))
+        return self._model(torch.cat([observation_, action_], dim=1))

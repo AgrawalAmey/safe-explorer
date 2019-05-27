@@ -14,7 +14,7 @@ arguments:
           - name: "agent_slack"
             default: 0.1
           - name: "frequency_ratio"
-            default: 0.25
+            default: 0.1
           - name: "target_noise_std"
             default: 0.05
           - name: "target_radius"
@@ -26,7 +26,7 @@ arguments:
           - name: "enable_reward_shaping"
             default: false
           - name: "is_arena"
-            default: false
+            default: true
       - name: "ballnd"
         help: "Ball-ND environment configuration."
         properties:
@@ -37,11 +37,11 @@ arguments:
           - name: "agent_slack"
             default: 0.1
           - name: "episode_length"
-            default: 15
+            default: 30
           - name: "frequency_ratio"
-            default: 0.025
-          - name: "respawn_interval"
             default: 0.1
+          - name: "respawn_interval"
+            default: 0.5
           - name: "target_noise_std"
             default: 0.05
           - name: "enable_reward_shaping"
@@ -53,14 +53,14 @@ arguments:
       help: "Actor network parameters."
       properties:
         - name: "layers"
-          default: [300, 300]
+          default: [128, 64]
         - name: "init_bound"
           default: 0.003
     - name: "critic"
       help: "Critic network parameters."
       properties:
         - name: "layers"
-          default: [500, 500]
+          default: [64, 128, 32]
         - name: "init_bound"
           default: 0.003
     - name: "trainer"
@@ -71,13 +71,13 @@ arguments:
         - name: "epochs"
           default: 100
         - name: "steps_per_epoch"
-          default: 5000
+          default: 6000
         - name: "evaluation_steps"
-          default: 500
+          default: 1500
         - name: "batch_size"
-          default: 100
+          default: 32
         - name: "max_episode_length"
-          default: 100
+          default: 300
         - name: "replay_buffer_size"
           default: 1000000
         - name: "discount_factor"
@@ -96,6 +96,12 @@ arguments:
           default: "./runs/tensorboard/"
         - name: "use_gpu"
           default: false
+        - name: "reward_scale"
+          default: 1
+        - name: "max_updates_per_episode"
+          default: 10
+        - name: "min_buffer_fill"
+          default: 2000
   - name: "core"
     help: "Safe-Explorer core properties."
     properties:

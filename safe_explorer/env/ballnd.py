@@ -9,7 +9,6 @@ from safe_explorer.core.config import Config
 class BallND(gym.Env):
     def __init__(self):
         self._config = Config.get().env.ballnd
-
         # Set the properties for spaces
         self.action_space = Box(low=-1, high=1, shape=(self._config.n,), dtype=np.float32)
         self.observation_space = Dict({
@@ -24,14 +23,13 @@ class BallND(gym.Env):
         self._agent_position = 0.5 * np.ones(self._config.n,  dtype=np.float32)
         self._reset_target_location()
         self._current_time = 0.
-        self._last_reward = 0.
         return self.step(np.zeros(self._config.n))[0]
     
     def _get_reward(self):
         if self._config.enable_reward_shaping and self._is_agent_outside_slacked_boundary():
             return -1
         else:
-            return np.absolute(1 - 10 * LA.norm(self._agent_position - self._target_position) ** 2)
+            return np.clip(1 - 10 * LA.norm(self._agent_position - self._target_position) ** 2, 0, 1)
     
     def _reset_target_location(self):
         self._target_position = \
@@ -55,7 +53,7 @@ class BallND(gym.Env):
     def _get_noisy_target_position(self):
         return self._target_position + \
                np.random.normal(0, self._config.target_noise_std, self._config.n)
-    
+
     def step(self, action):
         # Check if the target needs to be relocated
         # Extract the first digit after decimal in current_time to add numerical stability
@@ -65,14 +63,14 @@ class BallND(gym.Env):
         # Increment time
         self._update_time()
 
+        last_reward = self._get_reward()
         # Calculate new position of the agent
         self._move_agent(action)
 
         # Find reward         
         reward = self._get_reward()
-        step_reward = reward - self._last_reward
-        self._last_reward = reward
-        
+        step_reward = reward - last_reward
+
         # Prepare return payload
         observation = {
             "agent_position": self._agent_position,
@@ -80,6 +78,6 @@ class BallND(gym.Env):
         }
 
         done = self._is_agent_outside_boundary() \
-               or int(self._current_time // 1) >= self._config.episode_length
+               or int(self._current_time // 1) > self._config.episode_length
 
         return observation, step_reward, done, {}
