@@ -27,6 +27,8 @@ arguments:
             default: false
           - name: "is_arena"
             default: true
+          - name: "reward_shaping_slack"
+            default: 0.1
       - name: "ballnd"
         help: "Ball-ND environment configuration."
         properties:
@@ -46,6 +48,8 @@ arguments:
             default: 0.05
           - name: "enable_reward_shaping"
             default: false
+          - name: "reward_shaping_slack"
+            default: 0.1
   - name: "ddpg"
     help: "Hyperparameters for DDPG algorithm."
     properties:
@@ -102,6 +106,37 @@ arguments:
           default: 10
         - name: "min_buffer_fill"
           default: 2000
+  - name: "safety_layer"
+    help: "Safety layer configuration."
+    properties:
+      - name: "constraint_model"
+        help: "Hyperparameters for constraint model (g)"
+        properties:
+          - name: "layers"
+            default: [10, 10]
+          - name: "init_bound"
+            default: 0.003
+      - name: "trainer"
+        help: "Constraint model training parameters"
+        properties:
+          - name: "batch_size"
+            default: 256
+          - name: "lr"
+            default: 0.0001
+          - name: "max_episode_length"
+            default: 300
+          - name: "steps_per_epoch"
+            default: 6000
+          - name: "epochs"
+            default: 100
+          - name: "evaluation_steps"
+            default: 1500
+          - name: "replay_buffer_size"
+            default: 1000000
+          - name: "tensorboard_dir"
+            default: "./runs/tensorboard/"
+          - name: "use_gpu"
+            default: false
   - name: "core"
     help: "Safe-Explorer core properties."
     properties:

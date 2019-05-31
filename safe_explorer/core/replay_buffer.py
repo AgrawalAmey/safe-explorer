@@ -29,3 +29,12 @@ class ReplayBuffer:
     def sample(self, batch_size):
         random_indices = np.random.randint(0, self._filled_till, batch_size)
         return {k: v[random_indices] for k, v in self._buffers.items()}
+    
+    def get_sequential(self, batch_size):
+        for i in range(self._filled_till // batch_size):
+            yield {k: v[i * batch_size: (i + 1) * batch_size] for k, v in self._buffers.items()}
+
+    def clear(self):
+        self._buffers = {}
+        self._current_index = 0
+        self._filled_till = 0

@@ -6,3 +6,7 @@ def select_with_predicate(X, predicates):
 
 def flatten(l):
     return [item for sublist in l for item in sublist]
+
+def foreach(f, l):
+    for x in l:
+        f(x)

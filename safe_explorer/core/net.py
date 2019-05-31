@@ -5,17 +5,18 @@ from torch.nn import Linear, Module, ModuleList
 from torch.nn.init import uniform_
 import torch.nn.functional as F
 
-from safe_explorer.ddpg.utils import init_fan_in_uniform
 
 class Net(Module):
     def __init__(self,
                  in_dim,
                  out_dim,
                  layer_dims,
-                 last_activation,
-                 init_bound):
+                 init_bound,
+                 initializer,
+                 last_activation):
         super(Net, self).__init__()
 
+        self._initializer = initializer
         self._last_activation = last_activation
 
         _layer_dims = [in_dim] + layer_dims + [out_dim]
@@ -30,7 +31,7 @@ class Net(Module):
         # Initialize all layers except the last one with fan-in initializer
         (seq(self._layers[:-1])
             .map(lambda x: x.weight)
-            .for_each(init_fan_in_uniform))
+            .for_each(self._initializer))
         # Init last layer with uniform initializer
         uniform_(self._layers[-1].weight, -bound, bound)
 

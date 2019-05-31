@@ -26,7 +26,7 @@ class BallND(gym.Env):
         return self.step(np.zeros(self._config.n))[0]
     
     def _get_reward(self):
-        if self._config.enable_reward_shaping and self._is_agent_outside_slacked_boundary():
+        if self._config.enable_reward_shaping and self._is_agent_outside_shaping_boundary():
             return -1
         else:
             return np.clip(1 - 10 * LA.norm(self._agent_position - self._target_position) ** 2, 0, 1)
@@ -42,9 +42,9 @@ class BallND(gym.Env):
     def _is_agent_outside_boundary(self):
         return np.any(self._agent_position < 0) or np.any(self._agent_position > 1)
     
-    def _is_agent_outside_slacked_boundary(self):
-        return np.any(self._agent_position < self._config.agent_slack) \
-               or np.any(self._agent_position > 1 - self._config.agent_slack)
+    def _is_agent_outside_shaping_boundary(self):
+        return np.any(self._agent_position < self._config.reward_shaping_slack) \
+               or np.any(self._agent_position > 1 - self._config.reward_shaping_slack)
 
     def _update_time(self):
         # Assume that frequency of motor is 1 (one action per second)
@@ -53,6 +53,20 @@ class BallND(gym.Env):
     def _get_noisy_target_position(self):
         return self._target_position + \
                np.random.normal(0, self._config.target_noise_std, self._config.n)
+    
+    def get_num_constraints(self):
+        return 2 * self._config.n
+
+    def get_constraint_values(self):
+        # For any given n, there will be 2 * n constraints
+        # a lower and upper bound for each dim
+        # We define all the constraints such that C_i = 0
+        # _agent_position > 0 + _agent_slack => -_agent_position + _agent_slack < 0
+        min_constraints = self._config.agent_slack - self._agent_position
+        # _agent_position < 1 - _agent_slack => _agent_position + agent_slack- 1 < 0
+        max_constraint = self._agent_position  + self._config.agent_slack - 1
+
+        return np.concatenate([min_constraints, max_constraint])
 
     def step(self, action):
         # Check if the target needs to be relocated

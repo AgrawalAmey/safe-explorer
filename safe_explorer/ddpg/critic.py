@@ -3,7 +3,7 @@ from torch.nn import Linear, Module
 import torch.nn.functional as F
 
 from safe_explorer.core.config import Config
-from safe_explorer.ddpg.net import Net
+from safe_explorer.core.net import Net
 from safe_explorer.ddpg.utils import init_fan_in_uniform
 
 class Critic(Module):
@@ -21,8 +21,9 @@ class Critic(Module):
         self._model = Net(config.layers[0] * 2,
                           1,
                           config.layers[1:],
-                          None,
-                          config.init_bound)
+                          config.init_bound,
+                          init_fan_in_uniform,
+                          None)
 
     def forward(self, observation, action):
         observation_ = F.relu(self._observation_linear(observation))

@@ -38,7 +38,7 @@ class Spaceship(gym.Env):
         return self.step(np.zeros(2))[0]
 
     def _get_reward(self):
-        if self._config.enable_reward_shaping and self._is_agent_outside_slacked_boundary():
+        if self._config.enable_reward_shaping and self._is_agent_outside_shaping_boundary():
             reward = -1000
         elif LA.norm(self._agent_position - self._target_position) < self._config.target_radius:
             reward = 1000
@@ -57,9 +57,9 @@ class Spaceship(gym.Env):
         return np.any(self._agent_position < 0) \
                or np.any(self._agent_position > np.asarray([self._width, self._config.length]))
     
-    def _is_agent_outside_slacked_boundary(self):
-        return np.any(self._agent_position < self._config.agent_slack) \
-               or np.any(self._agent_position > np.asarray([self._width, self._config.length]) - self._config.agent_slack)
+    def _is_agent_outside_shaping_boundary(self):
+        return np.any(self._agent_position < self._config.reward_shaping_slack) \
+               or np.any(self._agent_position > np.asarray([self._width, self._config.length]) - self._config.reward_shaping_slack)
 
     def _update_time(self):
         # Assume spaceship frequency to be one
@@ -68,6 +68,22 @@ class Spaceship(gym.Env):
     def _get_noisy_target_position(self):
         return self._target_position + \
                np.random.normal(0, self._config.target_noise_std, 2)
+
+    def get_num_constraints(self):
+        return 4
+
+    def get_constraint_values(self):
+        # There a a total of 4 constraints
+        # a lower and upper bound for each dim
+        # We define all the constraints such that C_i = 0
+        # _agent_position > 0 + _agent_slack => -_agent_position + _agent_slack < 0
+        min_constraints = self._config.agent_slack - self._agent_position
+        # _agent_position < np.asarray([_width, length]) - agent_slack
+        # => _agent_position + agent_slack - np.asarray([_width, length]) < 0
+        max_constraint = self._agent_position  + self._config.agent_slack \
+                         - np.asarray([self._width, self._config.length])
+
+        return np.concatenate([min_constraints, max_constraint])
 
     def step(self, action):
         # Increment time

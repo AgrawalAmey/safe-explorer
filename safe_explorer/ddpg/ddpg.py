@@ -2,13 +2,13 @@ import copy
 import numpy as np
 import time
 import torch
-from torch.nn import MSELoss
 import torch.nn.functional as F
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 
 from safe_explorer.core.config import Config
-from safe_explorer.ddpg.replay_buffer import ReplayBuffer
+from safe_explorer.core.replay_buffer import ReplayBuffer
+
 
 class DDPG:
     def __init__(self, env, actor, critic):
@@ -220,6 +220,7 @@ class DDPG:
                 self.evaluate()
                 print("----------------------------------------------------------")
         
+        self._writer.close()
         print("==========================================================")
         print(f"Finished training. Time spent: {time.time() - start_time}")
         print("==========================================================")

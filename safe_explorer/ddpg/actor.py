@@ -1,7 +1,8 @@
 import torch
 
 from safe_explorer.core.config import Config
-from safe_explorer.ddpg.net import Net
+from safe_explorer.core.net import Net
+from safe_explorer.ddpg.utils import init_fan_in_uniform
 
 
 class Actor(Net):
@@ -11,5 +12,6 @@ class Actor(Net):
         super(Actor, self).__init__(observation_dim,
                                     action_dim,
                                     config.layers,
-                                    torch.tanh,
-                                    config.init_bound)
+                                    config.init_bound,
+                                    init_fan_in_uniform,
+                                    torch.tanh)
