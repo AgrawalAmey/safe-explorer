@@ -104,18 +104,18 @@ class SafetyLayer:
         return np.asarray([x.item() for x in losses])
 
     def evaluate(self):
-
+        # Sample steps
         self._sample_steps(self._config.evaluation_steps)
 
         self._eval_mode()
-
+        # compute losses
         losses = [list(map(lambda x: x.item(), self._evaluate_batch(batch))) for batch in \
                 self._replay_buffer.get_sequential(self._config.batch_size)]
 
         losses = np.mean(np.concatenate(losses).reshape(-1, self._num_constraints), axis=0)
 
         self._replay_buffer.clear()
-
+        # Log to tensorboard
         for_each(lambda x: self._writer.add_scalar(f"constraint {x[0]} eval loss", x[1], self._eval_global_step),
                  enumerate(losses))
         self._eval_global_step += 1
@@ -125,22 +125,20 @@ class SafetyLayer:
         print(f"Validation completed, average loss {losses}")
 
     def get_safe_action(self, observation, action, c):    
+        # Find the values of G
         self._eval_mode()
         g = [x(self._as_tensor(observation["agent_position"]).view(1, -1)) for x in self._models]
         self._train_mode()
 
+        # Fidn the lagrange multipliers
         g = [x.data.numpy().reshape(-1) for x in g]
         multipliers = [(np.dot(g_i, action) + c_i) / np.dot(g_i, g_i) for g_i, c_i in zip(g, c)]
         multipliers = [np.clip(x, 0, np.inf) for x in multipliers]
 
+        # Calculate correction
         correction = np.max(multipliers) * g[np.argmax(multipliers)]
 
         action_new = action - correction
-        
-        # if correction > 0:
-        #     print(c)
-        #     print(multipliers)
-        #     print(action, action_new, correction)
 
         return action_new
 
@@ -158,13 +156,16 @@ class SafetyLayer:
         number_of_steps = self._config.steps_per_epoch * self._config.epochs
 
         for epoch in range(self._config.epochs):
+            # Just sample episodes for the whole epoch
             self._sample_steps(self._config.steps_per_epoch)
-
+            
+            # Do the update from memory
             losses = np.mean(np.concatenate([self._update_batch(batch) for batch in \
                     self._replay_buffer.get_sequential(self._config.batch_size)]).reshape(-1, self._num_constraints), axis=0)
 
             self._replay_buffer.clear()
 
+            # Write losses and histograms to tensorboard
             for_each(lambda x: self._writer.add_scalar(f"constraint {x[0]} training loss", x[1], self._train_global_step),
                      enumerate(losses))
 
