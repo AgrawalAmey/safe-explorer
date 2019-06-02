@@ -1,4 +1,6 @@
 import copy
+from datetime import datetime
+from functional import seq
 import numpy as np
 import time
 import torch
@@ -26,8 +28,12 @@ class DDPG:
         self._initialize_target_networks()
         self._initialize_optimizers()
 
-        self._models = [self._actor, self._critic,
-                        self._target_actor, self._target_critic]
+        self._models = {
+            'actor': self._actor,
+            'critic': self._critic,
+            'target_actor': self._target_actor,
+            'target_critic': self._target_critic
+        }
 
         self._replay_buffer = ReplayBuffer(self._config.replay_buffer_size)
 
@@ -53,13 +59,13 @@ class DDPG:
         self._critic_optimizer = Adam(self._critic.parameters(), lr=self._config.critic_lr)
     
     def _eval_mode(self):
-        for_each(lambda x: x.eval(), self._models)
+        for_each(lambda x: x.eval(), self._models.values())
 
     def _train_mode(self):
-        for_each(lambda x: x.train(), self._models)
+        for_each(lambda x: x.train(), self._models.values())
 
     def _cuda(self):
-        for_each(lambda x: x.cuda(), self._models)
+        for_each(lambda x: x.cuda(), self._models.values())
 
     def _get_action(self, observation, c, is_training=True):
         # Action + random gaussian noise (as recommended in spining up)
@@ -130,18 +136,23 @@ class DDPG:
         actor_loss.backward()
         self._actor_optimizer.step()
 
-        # Log to tensorboard
-        self._writer.add_scalar("critic loss", critic_loss.item(), self._train_global_step)
-        self._writer.add_scalar("actor loss", actor_loss.item(), self._train_global_step)
-        self._train_global_step +=1        
-
         # Update targets networks
         self._update_targets(self._target_actor, self._actor)
         self._update_targets(self._target_critic, self._critic)
 
+        # Log to tensorboard
+        self._writer.add_scalar("critic loss", critic_loss.item(), self._train_global_step)
+        self._writer.add_scalar("actor loss", actor_loss.item(), self._train_global_step)
+        (seq(self._models.items())
+                    .flat_map(lambda x: [(x[0], y) for y in x[1].named_parameters()]) # (model_name, (param_name, param_data))
+                    .map(lambda x: (f"{x[0]}_{x[1][0]}", x[1][1]))
+                    .for_each(lambda x: self._writer.add_histogram(x[0], x[1].data.numpy(), self._train_global_step)))
+        self._train_global_step +=1
+
     def _update(self, episode_length):
         # Update model #episode_length times
-        [self._update_batch() for _ in range(min(episode_length, self._config.max_updates_per_episode))]
+        for_each(lambda x: self._update_batch(),
+                 range(min(episode_length, self._config.max_updates_per_episode)))
 
     def evaluate(self):
         episode_rewards = []
@@ -195,11 +206,9 @@ class DDPG:
         start_time = time.time()
 
         print("==========================================================")
-        print("Initializing training with config:")
+        print("Initializing DDPG training...")
         print("----------------------------------------------------------")
-        Config.get().pprint()
-        print("==========================================================")
-        print(f"Start time: {start_time}")
+        print(f"Start time: {datetime.fromtimestamp(start_time)}")
         print("==========================================================")
 
         observation = self._env.reset()
@@ -221,7 +230,7 @@ class DDPG:
             self._replay_buffer.add({
                 "observation": self._flatten_dict(observation),
                 "action": action,
-                "reward": np.asarray(reward) / self._config.reward_scale,
+                "reward": np.asarray(reward) * self._config.reward_scale,
                 "observation_next": self._flatten_dict(observation_next),
                 "done": np.asarray(done),
             })
@@ -240,15 +249,14 @@ class DDPG:
                 episode_length = 0
                 self._writer.add_scalar("episode length", episode_length)
                 self._writer.add_scalar("episode reward", episode_reward)
-            
+
             # Check if the epoch is over
-            if step != 0 and step % self._config.steps_per_epoch == 0:
-                # self.store()
+            if step != 0 and step % self._config.steps_per_epoch == 0: 
                 print(f"Finished epoch {step / self._config.steps_per_epoch}. Running validation ...")
                 self.evaluate()
                 print("----------------------------------------------------------")
         
         self._writer.close()
         print("==========================================================")
-        print(f"Finished training. Time spent: {time.time() - start_time}")
+        print(f"Finished DDPG training. Time spent: {(time.time() - start_time) // 1} secs")
         print("==========================================================")

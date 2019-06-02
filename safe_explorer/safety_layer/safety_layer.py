@@ -1,3 +1,5 @@
+from datetime import datetime
+from functional import seq
 import numpy as np
 import time
 import torch
@@ -14,7 +16,7 @@ class SafetyLayer:
     def __init__(self, env):
         self._env = env
 
-        self._config = Config.get().safety_layer.safety_layer
+        self._config = Config.get().safety_layer.trainer
 
         self._num_constraints = env.get_num_constraints()
 
@@ -149,7 +151,7 @@ class SafetyLayer:
         print("==========================================================")
         print("Initializing constraint model training...")
         print("----------------------------------------------------------")        
-        print(f"Start time: {start_time}")
+        print(f"Start time: {datetime.fromtimestamp(start_time)}")
         print("==========================================================")
 
 
@@ -165,6 +167,16 @@ class SafetyLayer:
 
             for_each(lambda x: self._writer.add_scalar(f"constraint {x[0]} training loss", x[1], self._train_global_step),
                      enumerate(losses))
+
+            (seq(self._models)
+                    .zip_with_index() # (model, index) 
+                    .map(lambda x: (f"constraint_model_{x[1]}", x[0])) # (model_name, model)
+                    .flat_map(lambda x: [(x[0], y) for y in x[1].named_parameters()]) # (model_name, (param_name, param_data))
+                    .map(lambda x: (f"{x[0]}_{x[1][0]}", x[1][1])) # (modified_param_name, param_data)
+                    .for_each(lambda x: self._writer.add_histogram(x[0], x[1].data.numpy(), self._train_global_step)))
+
+
+
             self._train_global_step += 1
 
             print(f"Finished epoch {epoch} with losses: {losses}. Running validation ...")
@@ -173,5 +185,5 @@ class SafetyLayer:
         
         self._writer.close()
         print("==========================================================")
-        print(f"Finished training constraint model. Time spent: {time.time() - start_time}")
+        print(f"Finished training constraint model. Time spent: {(time.time() - start_time) // 1} secs")
         print("==========================================================")

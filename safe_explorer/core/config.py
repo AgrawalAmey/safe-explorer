@@ -88,7 +88,7 @@ class Config:
         argument_groups = cls._get_argument_groups(config["arguments"])
         parser = cls._create_parser(config["name"], config.get("help", ''), argument_groups)
         parsed_config = cls._split_namespace(config["name"], config["arguments"], parser.parse_args(args).__dict__)
-        
+
         cls._config = parsed_config
 
     @classmethod

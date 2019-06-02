@@ -70,8 +70,6 @@ arguments:
     - name: "trainer"
       help: "Training parameters."
       properties:
-        - name: "seed"
-          default: 0
         - name: "epochs"
           default: 100
         - name: "steps_per_epoch"
@@ -79,7 +77,7 @@ arguments:
         - name: "evaluation_steps"
           default: 1500
         - name: "batch_size"
-          default: 32
+          default: 256
         - name: "max_episode_length"
           default: 300
         - name: "replay_buffer_size"
@@ -114,7 +112,7 @@ arguments:
             default: [10, 10]
           - name: "init_bound"
             default: 0.003
-      - name: "safety_layer"
+      - name: "trainer"
         help: "Constraint model training parameters"
         properties:
           - name: "batch_size"
@@ -126,18 +124,22 @@ arguments:
           - name: "steps_per_epoch"
             default: 6000
           - name: "epochs"
-            default: 50
+            default: 25
           - name: "evaluation_steps"
             default: 1500
           - name: "replay_buffer_size"
             default: 1000000
           - name: "use_gpu"
             default: false
-  - name: "core"
-    help: "Safe-Explorer core properties."
+  - name: "main"
+    help: "Safe-Explorer driver properties."
     properties:
-      - name: "driver"
-        help: "Driver configuration."
+      - name: "trainer"
+        help: "Training configuration."
         properties:
+          - name: "seed"
+            default: 0
           - name: "task"
             default: "ballnd"
+          - name: "use_safety_layer"
+            default: true
