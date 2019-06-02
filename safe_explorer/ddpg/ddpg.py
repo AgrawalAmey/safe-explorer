@@ -4,10 +4,10 @@ import time
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
-from torch.utils.tensorboard import SummaryWriter
 
 from safe_explorer.core.config import Config
 from safe_explorer.core.replay_buffer import ReplayBuffer
+from safe_explorer.core.tensorboard import TensorBoard
 from safe_explorer.utils.list import for_each, select_with_predicate
 
 class DDPG:
@@ -32,7 +32,9 @@ class DDPG:
         self._replay_buffer = ReplayBuffer(self._config.replay_buffer_size)
 
         # Tensorboard writer
-        self._writer = SummaryWriter(self._config.tensorboard_dir)
+        self._writer = TensorBoard.get_writer()
+        self._train_global_step = 0
+        self._eval_global_step = 0
 
         if self._config.use_gpu:
             self._cuda()
@@ -129,9 +131,10 @@ class DDPG:
         self._actor_optimizer.step()
 
         # Log to tensorboard
-        self._writer.add_scalar("critic loss", critic_loss.item())
-        self._writer.add_scalar("actor loss", actor_loss.item())
-        
+        self._writer.add_scalar("critic loss", critic_loss.item(), self._train_global_step)
+        self._writer.add_scalar("actor loss", actor_loss.item(), self._train_global_step)
+        self._train_global_step +=1        
+
         # Update targets networks
         self._update_targets(self._target_actor, self._actor)
         self._update_targets(self._target_critic, self._critic)
@@ -174,8 +177,10 @@ class DDPG:
 
         mean_episode_reward = np.mean(episode_rewards)
         mean_episode_length = np.mean(episode_lengths)
-        self._writer.add_scalar("eval episode reward", mean_episode_reward)
-        self._writer.add_scalar("eval episode length", mean_episode_length)
+
+        self._writer.add_scalar("eval mean episode reward", mean_episode_reward, self._eval_global_step)
+        self._writer.add_scalar("eval mean episode length", mean_episode_length, self._eval_global_step)
+        self._eval_global_step += 1
 
         self._train_mode()
 

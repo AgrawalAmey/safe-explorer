@@ -1,5 +1,6 @@
 pyfunctional
 numpy
 torch
-tb-nightly
+tensorboardx
+tensorboard
 gym

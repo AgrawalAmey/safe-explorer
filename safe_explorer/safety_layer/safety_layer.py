@@ -3,10 +3,10 @@ import time
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
-from torch.utils.tensorboard import SummaryWriter
 
 from safe_explorer.core.config import Config
 from safe_explorer.core.replay_buffer import ReplayBuffer
+from safe_explorer.core.tensorboard import TensorBoard
 from safe_explorer.safety_layer.constraint_model import ConstraintModel
 from safe_explorer.utils.list import for_each
 
@@ -23,7 +23,9 @@ class SafetyLayer:
         self._replay_buffer = ReplayBuffer(self._config.replay_buffer_size)
 
         # Tensorboard writer
-        self._writer = SummaryWriter(self._config.tensorboard_dir)
+        self._writer = TensorBoard.get_writer()
+        self._train_global_step = 0
+        self._eval_global_step = 0
 
         if self._config.use_gpu:
             self._cuda()
@@ -112,7 +114,9 @@ class SafetyLayer:
 
         self._replay_buffer.clear()
 
-        for_each(lambda x: self._writer.add_scalar(f"constraint {x[0]} eval loss", x[1]), enumerate(losses))
+        for_each(lambda x: self._writer.add_scalar(f"constraint {x[0]} eval loss", x[1], self._eval_global_step),
+                 enumerate(losses))
+        self._eval_global_step += 1
 
         self._train_mode()
 
@@ -159,7 +163,9 @@ class SafetyLayer:
 
             self._replay_buffer.clear()
 
-            for_each(lambda x: self._writer.add_scalar(f"constraint {x[0]} training loss", x[1]), enumerate(losses))
+            for_each(lambda x: self._writer.add_scalar(f"constraint {x[0]} training loss", x[1], self._train_global_step),
+                     enumerate(losses))
+            self._train_global_step += 1
 
             print(f"Finished epoch {epoch} with losses: {losses}. Running validation ...")
             self.evaluate()

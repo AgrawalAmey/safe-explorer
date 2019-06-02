@@ -96,8 +96,6 @@ arguments:
           default: 500
         - name: "action_noise_range"
           default: 0.01
-        - name: "tensorboard_dir"
-          default: "./runs/tensorboard/"
         - name: "use_gpu"
           default: false
         - name: "reward_scale"
@@ -133,8 +131,6 @@ arguments:
             default: 1500
           - name: "replay_buffer_size"
             default: 1000000
-          - name: "tensorboard_dir"
-            default: "./runs/tensorboard/"
           - name: "use_gpu"
             default: false
   - name: "core"
