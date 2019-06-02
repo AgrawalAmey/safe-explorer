@@ -40,6 +40,11 @@ python -m safe_explorer.main --main_trainer_task ballnd
 python -m safe_explorer.main --main_trainer_task spaceship
 ```
 
+Monitor training with Tensorboard,
+```sh
+tensorboard --logdir=runs
+```
+
 ## Results
 
 To be updated.
