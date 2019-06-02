@@ -8,13 +8,13 @@ from torch.utils.tensorboard import SummaryWriter
 from safe_explorer.core.config import Config
 from safe_explorer.core.replay_buffer import ReplayBuffer
 from safe_explorer.safety_layer.constraint_model import ConstraintModel
-from safe_explorer.utils.list import foreach
+from safe_explorer.utils.list import for_each
 
-class Trainer:
+class SafetyLayer:
     def __init__(self, env):
         self._env = env
 
-        self._config = Config.get().safety_layer.trainer
+        self._config = Config.get().safety_layer.safety_layer
 
         self._num_constraints = env.get_num_constraints()
 
@@ -26,21 +26,21 @@ class Trainer:
         self._writer = SummaryWriter(self._config.tensorboard_dir)
 
         if self._config.use_gpu:
-            self.cuda()
+            self._cuda()
 
     def _as_tensor(self, ndarray, requires_grad=False):
         tensor = torch.Tensor(ndarray)
         tensor.requires_grad = requires_grad
         return tensor
 
-    def cuda(self):
-        foreach(lambda x: x.cuda(), self._models)
+    def _cuda(self):
+        for_each(lambda x: x.cuda(), self._models)
 
-    def eval_mode(self):
-        foreach(lambda x: x.eval(), self._models)
+    def _eval_mode(self):
+        for_each(lambda x: x.eval(), self._models)
 
-    def train_mode(self):
-        foreach(lambda x: x.train(), self._models)
+    def _train_mode(self):
+        for_each(lambda x: x.train(), self._models)
 
     def _initialize_constraint_models(self):
         self._models = [ConstraintModel(self._env.observation_space["agent_position"].shape[0],
@@ -92,10 +92,10 @@ class Trainer:
         batch = self._replay_buffer.sample(self._config.batch_size)
 
         # Update critic
-        foreach(lambda x: x.zero_grad(), self._optimizers)
+        for_each(lambda x: x.zero_grad(), self._optimizers)
         losses = self._evaluate_batch(batch)
-        foreach(lambda x: x.backward(), losses)
-        foreach(lambda x: x.step(), self._optimizers)
+        for_each(lambda x: x.backward(), losses)
+        for_each(lambda x: x.step(), self._optimizers)
 
         return np.asarray([x.item() for x in losses])
 
@@ -103,7 +103,7 @@ class Trainer:
 
         self._sample_steps(self._config.evaluation_steps)
 
-        self.eval_mode()
+        self._eval_mode()
 
         losses = [list(map(lambda x: x.item(), self._evaluate_batch(batch))) for batch in \
                 self._replay_buffer.get_sequential(self._config.batch_size)]
@@ -112,17 +112,34 @@ class Trainer:
 
         self._replay_buffer.clear()
 
-        foreach(lambda x: self._writer.add_scalar(f"constraint {x[0]} eval loss", x[1]), enumerate(losses))
+        for_each(lambda x: self._writer.add_scalar(f"constraint {x[0]} eval loss", x[1]), enumerate(losses))
 
-        self.train_mode()
+        self._train_mode()
 
         print(f"Validation completed, average loss {losses}")
 
-    def predict(self, observation):
-        return self._model(self._as_tensor(observation["agent_position"]).reshape(1, -1))
+    def get_safe_action(self, observation, action, c):    
+        self._eval_mode()
+        g = [x(self._as_tensor(observation["agent_position"]).view(1, -1)) for x in self._models]
+        self._train_mode()
+
+        g = [x.data.numpy().reshape(-1) for x in g]
+        multipliers = [(np.dot(g_i, action) + c_i) / np.dot(g_i, g_i) for g_i, c_i in zip(g, c)]
+        multipliers = [np.clip(x, 0, np.inf) for x in multipliers]
+
+        correction = np.max(multipliers) * g[np.argmax(multipliers)]
+
+        action_new = action - correction
+        
+        # if correction > 0:
+        #     print(c)
+        #     print(multipliers)
+        #     print(action, action_new, correction)
+
+        return action_new
 
     def train(self):
-        
+
         start_time = time.time()
 
         print("==========================================================")
@@ -142,7 +159,7 @@ class Trainer:
 
             self._replay_buffer.clear()
 
-            foreach(lambda x: self._writer.add_scalar(f"constraint {x[0]} training loss", x[1]), enumerate(losses))
+            for_each(lambda x: self._writer.add_scalar(f"constraint {x[0]} training loss", x[1]), enumerate(losses))
 
             print(f"Finished epoch {epoch} with losses: {losses}. Running validation ...")
             self.evaluate()

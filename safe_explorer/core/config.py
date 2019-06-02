@@ -13,6 +13,7 @@ class Config:
 
     @classmethod
     def _get_argument_groups(cls, arg_config):
+        """Reads config.yml file and creates groups of arguments by flattening hierarchy"""
         argument_groups = []
         for group in arg_config:
             if "properties" in group.keys():
@@ -40,6 +41,7 @@ class Config:
 
     @classmethod
     def _create_parser(cls, name, _help, argument_groups):
+        """Creates argument parser from argument groups"""
         parser = argparse.ArgumentParser(prog=name,
                                          description=_help,
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -65,6 +67,7 @@ class Config:
     
     @classmethod
     def _split_namespace(cls, parent_name, arg_config, parsed_dict):
+        """Reestablish the hierarchy from parsed arguments"""
         group_namespaces = {}
         for group in arg_config:
             name = group["name"]
@@ -78,7 +81,8 @@ class Config:
         return Namespacify(parent_name, group_namespaces)
 
     @classmethod
-    def load_config(cls, args=None):
+    def _load_config(cls, args=None):
+        """Reads the default config and parses the commandline args to generate config"""
         config_file_path = f"{get_project_root_dir()}/config/defaults.yml"
         config = yaml.load(open(config_file_path), Loader=yaml.FullLoader)
         argument_groups = cls._get_argument_groups(config["arguments"])
@@ -90,6 +94,6 @@ class Config:
     @classmethod
     def get(cls):
         if not cls._config:
-            cls.load_config()
+            cls._load_config()
 
         return cls._config

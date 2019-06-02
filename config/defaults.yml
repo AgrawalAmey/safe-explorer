@@ -12,7 +12,7 @@ arguments:
           - name: "margin"
             default: 0.2
           - name: "agent_slack"
-            default: 0.1
+            default: 0.05
           - name: "frequency_ratio"
             default: 0.1
           - name: "target_noise_std"
@@ -37,7 +37,7 @@ arguments:
           - name: "target_margin"
             default: 0.2
           - name: "agent_slack"
-            default: 0.1
+            default: 0.05
           - name: "episode_length"
             default: 30
           - name: "frequency_ratio"
@@ -49,7 +49,7 @@ arguments:
           - name: "enable_reward_shaping"
             default: false
           - name: "reward_shaping_slack"
-            default: 0.1
+            default: 0.1          
   - name: "ddpg"
     help: "Hyperparameters for DDPG algorithm."
     properties:
@@ -116,7 +116,7 @@ arguments:
             default: [10, 10]
           - name: "init_bound"
             default: 0.003
-      - name: "trainer"
+      - name: "safety_layer"
         help: "Constraint model training parameters"
         properties:
           - name: "batch_size"
@@ -128,7 +128,7 @@ arguments:
           - name: "steps_per_epoch"
             default: 6000
           - name: "epochs"
-            default: 100
+            default: 50
           - name: "evaluation_steps"
             default: 1500
           - name: "replay_buffer_size"

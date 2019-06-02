@@ -8,13 +8,18 @@ from torch.utils.tensorboard import SummaryWriter
 
 from safe_explorer.core.config import Config
 from safe_explorer.core.replay_buffer import ReplayBuffer
-
+from safe_explorer.utils.list import for_each, select_with_predicate
 
 class DDPG:
-    def __init__(self, env, actor, critic):
+    def __init__(self,
+                 env,
+                 actor,
+                 critic,
+                 action_modifier=None):
         self._env = env
         self._actor = actor
         self._critic = critic
+        self._action_modifier = action_modifier
 
         self._config = Config.get().ddpg.trainer
 
@@ -30,7 +35,7 @@ class DDPG:
         self._writer = SummaryWriter(self._config.tensorboard_dir)
 
         if self._config.use_gpu:
-            self.cuda()
+            self._cuda()
 
     def _as_tensor(self, ndarray, requires_grad=False):
         tensor = torch.Tensor(ndarray)
@@ -45,22 +50,27 @@ class DDPG:
         self._actor_optimizer = Adam(self._actor.parameters(), lr=self._config.actor_lr)
         self._critic_optimizer = Adam(self._critic.parameters(), lr=self._config.critic_lr)
     
-    def eval_mode(self):
-        map(lambda x: x.eval(), self._models)
+    def _eval_mode(self):
+        for_each(lambda x: x.eval(), self._models)
 
-    def train_mode(self):
-        map(lambda x: x.train(), self._models)
+    def _train_mode(self):
+        for_each(lambda x: x.train(), self._models)
 
-    def cuda(self):
-        map(lambda x: x.eval(), self._models)
+    def _cuda(self):
+        for_each(lambda x: x.cuda(), self._models)
 
-    def _get_action(self, observation, is_training=True):
+    def _get_action(self, observation, c, is_training=True):
         # Action + random gaussian noise (as recommended in spining up)
-        action = self._actor(observation)
+        action = self._actor(self._as_tensor(self._flatten_dict(observation)))
         if is_training:
             action += self._config.action_noise_range * torch.randn(self._env.action_space.shape)
 
-        return action.data.numpy()
+        action = action.data.numpy()
+
+        if self._action_modifier:
+            action = self._action_modifier(observation, action, c)
+
+        return action
 
     def _get_q(self, batch):
         return self._critic(self._as_tensor(batch["observation"]))
@@ -92,6 +102,11 @@ class DDPG:
 
     def _update_batch(self):
         batch = self._replay_buffer.sample(self._config.batch_size)
+        # Only pick steps in which action was non-zero
+        # When a constraint is violated, the safety layer makes action 0 in
+        # direction of violating constraint
+        # valid_action_mask = np.sum(batch["action"], axis=1) > 0
+        # batch = {k: v[valid_action_mask] for k, v in batch.items()}
 
         # Update critic
         self._critic_optimizer.zero_grad()
@@ -99,6 +114,7 @@ class DDPG:
         q_predicted = self._critic(self._as_tensor(batch["observation"]),
                                    self._as_tensor(batch["action"]))
         # critic_loss = torch.mean((q_predicted.detach() - q_target) ** 2)
+        # Seems to work better
         critic_loss = F.smooth_l1_loss(q_predicted, q_target)
 
         critic_loss.backward()
@@ -130,16 +146,18 @@ class DDPG:
         episode_actions = []
 
         observation = self._env.reset()
+        c = self._env.get_constraint_values()
         episode_reward = 0
         episode_length = 0
         episode_action = 0
 
-        self.eval_mode()
+        self._eval_mode()
 
         for step in range(self._config.evaluation_steps):
-            action = self._get_action(self._as_tensor(self._flatten_dict(observation)), is_training=False)
+            action = self._get_action(observation, c, is_training=False)
             episode_action += np.absolute(action)
             observation, reward, done, _ = self._env.step(action)
+            c = self._env.get_constraint_values()
             episode_reward += reward
             episode_length += 1
             
@@ -149,6 +167,7 @@ class DDPG:
                 episode_actions.append(episode_action / episode_length)
 
                 observation = self._env.reset()
+                c = self._env.get_constraint_values()
                 episode_reward = 0
                 episode_length = 0
                 episode_action = 0
@@ -158,7 +177,7 @@ class DDPG:
         self._writer.add_scalar("eval episode reward", mean_episode_reward)
         self._writer.add_scalar("eval episode length", mean_episode_length)
 
-        self.train_mode()
+        self._train_mode()
 
         print("Validation completed:\n"
               f"Number of episodes: {len(episode_actions)}\n"
@@ -179,6 +198,7 @@ class DDPG:
         print("==========================================================")
 
         observation = self._env.reset()
+        c = self._env.get_constraint_values()
         episode_reward = 0
         episode_length = 0
 
@@ -187,7 +207,7 @@ class DDPG:
         for step in range(number_of_steps):
             # Randomly sample episode_ for some initial steps
             action = self._env.action_space.sample() if step < self._config.start_steps \
-                     else self._get_action(self._as_tensor(self._flatten_dict(observation)))
+                     else self._get_action(observation, c)
             
             observation_next, reward, done, _ = self._env.step(action)
             episode_reward += reward
@@ -202,12 +222,15 @@ class DDPG:
             })
 
             observation = observation_next
+            c = self._env.get_constraint_values()
+
             # Make all updates at the end of the episode
             if done or (episode_length == self._config.max_episode_length):
                 if step >= self._config.min_buffer_fill:
                     self._update(episode_length)
                 # Reset episode
                 observation = self._env.reset()
+                c = self._env.get_constraint_values()
                 episode_reward = 0
                 episode_length = 0
                 self._writer.add_scalar("episode length", episode_length)
