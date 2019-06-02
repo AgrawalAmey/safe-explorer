@@ -4,3 +4,4 @@ torch
 tensorboardx
 tensorboard
 gym
+pyyaml
